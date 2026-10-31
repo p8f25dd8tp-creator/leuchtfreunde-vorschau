@@ -243,6 +243,7 @@ if (heroGlow && !reduceMotion) {
     const l = level(ph);
     heroGlow.style.opacity = (0.3 + 0.6 * l).toFixed(3);
     heroGlow.style.transform = `translate(-50%, -50%) scale(${(0.88 + 0.22 * l).toFixed(3)})`;
+    heroPhoto.style.setProperty("--aura", l.toFixed(3));
     requestAnimationFrame(heroLoop);
   })(last);
 }
@@ -304,3 +305,27 @@ if (!reduceMotion) {
     if (entries[0].isIntersecting) { startBreath(); obs.disconnect(); }
   }, { threshold: 0.6 }).observe(stage);
 }
+
+// Hero-Bild neigt sich leicht zur Maus (nur Desktop)
+const heroVis = $(".hero-visual");
+if (heroVis && matchMedia("(hover: hover)").matches && !reduceMotion) {
+  heroVis.addEventListener("mousemove", (e) => {
+    const r = heroVis.getBoundingClientRect();
+    const x = (e.clientX - r.left) / r.width - 0.5, y = (e.clientY - r.top) / r.height - 0.5;
+    heroPhoto.style.setProperty("--ry", `${(x * 8).toFixed(2)}deg`);
+    heroPhoto.style.setProperty("--rx", `${(-y * 6).toFixed(2)}deg`);
+  });
+  heroVis.addEventListener("mouseleave", () => {
+    heroPhoto.style.setProperty("--rx", "0deg");
+    heroPhoto.style.setProperty("--ry", "0deg");
+  });
+}
+
+// Scroll-Fortschritt unter der Navigation
+const progress = $("#progress");
+const onScroll = () => {
+  const max = document.documentElement.scrollHeight - innerHeight;
+  progress.style.transform = `scaleX(${max > 0 ? scrollY / max : 0})`;
+};
+addEventListener("scroll", onScroll, { passive: true });
+onScroll();
