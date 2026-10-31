@@ -226,3 +226,81 @@ const countObs = new IntersectionObserver((entries) => {
   });
 });
 $$("[data-count]").forEach((el) => countObs.observe(el));
+
+// Atem-Licht: Rhythmus von 12 auf 6 Atemzüge/Min., Zeitraffer 10 Min. → 60 s
+const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const rateAt = (p) => 12 - 6 * Math.min(p, 1);
+const level = (phase) => (1 - Math.cos(2 * Math.PI * phase)) / 2; // 0 = ausgeatmet, 1 = eingeatmet
+
+// Hero: Bauchlicht atmet per JS, wird über eine Minute langsamer
+const heroGlow = $(".belly-glow");
+if (heroGlow && !reduceMotion) {
+  heroGlow.style.animation = "none";
+  let ph = 0, last = performance.now(), t0h = last;
+  (function heroLoop(now) {
+    const dt = (now - last) / 1000; last = now;
+    ph += dt * rateAt((now - t0h) / 60000) / 60;
+    const l = level(ph);
+    heroGlow.style.opacity = (0.3 + 0.6 * l).toFixed(3);
+    heroGlow.style.transform = `translate(-50%, -50%) scale(${(0.88 + 0.22 * l).toFixed(3)})`;
+    requestAnimationFrame(heroLoop);
+  })(last);
+}
+
+// Demo-Abschnitt
+const stage = $("#breath-stage");
+const glow = $("#breath-glow"), dark = $("#breath-dark"), cue = $("#breath-cue");
+const rateEl = $("#breath-rate"), barEl = $("#breath-bar"), timeEl = $("#breath-time"), btn = $("#breath-btn");
+const DEMO = 60000, FADE = 5000;
+let running = false, start = 0, phase = 0, prev = 0;
+
+function paint(l, fade = 1) {
+  stage.style.setProperty("--o", ((0.15 + 0.85 * l) * fade).toFixed(3));
+  stage.style.setProperty("--s", (0.85 + 0.25 * l).toFixed(3));
+  stage.style.setProperty("--halo", `${Math.round((20 + 70 * l) * fade)}px`);
+  dark.style.opacity = (0.75 - 0.35 * l * fade).toFixed(3);
+}
+
+function breathLoop(now) {
+  if (!running) return;
+  const t = now - start, dt = (now - prev) / 1000; prev = now;
+  if (t < DEMO) {
+    const p = t / DEMO;
+    phase += dt * rateAt(p) / 60; // Atemzug in Echtzeit, nur die Verlangsamung ist gerafft
+    const frac = phase % 1;
+    paint(level(phase));
+    cue.textContent = frac < 0.5 ? "Einatmen …" : "Ausatmen …";
+    rateEl.textContent = rateAt(p).toFixed(0);
+    barEl.style.width = `${p * 100}%`;
+    timeEl.textContent = `Minute ${Math.floor(p * 10)} von 10`;
+  } else if (t < DEMO + FADE) {
+    const f = 1 - (t - DEMO) / FADE;
+    paint(0.6, f);
+    cue.textContent = "Schlaf gut, kleiner Drache";
+    barEl.style.width = "100%";
+    timeEl.textContent = "Geschafft – Licht dimmt aus";
+  } else {
+    running = false;
+    btn.textContent = "Nochmal atmen";
+    btn.disabled = false;
+    return;
+  }
+  requestAnimationFrame(breathLoop);
+}
+
+function startBreath() {
+  if (running) return;
+  running = true; phase = 0.75; // beginnt ausgeatmet
+  start = prev = performance.now();
+  btn.textContent = "Atmet …"; btn.disabled = true;
+  requestAnimationFrame(breathLoop);
+}
+paint(0.4);
+cue.textContent = "Drück auf Start";
+btn.addEventListener("click", startBreath);
+stage.addEventListener("click", startBreath);
+if (!reduceMotion) {
+  new IntersectionObserver((entries, obs) => {
+    if (entries[0].isIntersecting) { startBreath(); obs.disconnect(); }
+  }, { threshold: 0.6 }).observe(stage);
+}
